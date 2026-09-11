@@ -1,0 +1,6 @@
+_metadata/
+*.crx
+*.pem
+Thumbs.db
+Desktop.ini
+.DS_Store

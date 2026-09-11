@@ -1,0 +1,44 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "regexSubstitution": "https://www.youtube.com/\\1/videos\\2"
+      }
+    },
+    "condition": {
+      "regexFilter": "^https://www\\.youtube\\.com/(@[^/?]+|(?:channel|c|user)/[^/?]+)(?:/featured)?/?(\\?.*)?$",
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "regexSubstitution": "https://m.youtube.com/\\1/videos\\2"
+      }
+    },
+    "condition": {
+      "regexFilter": "^https://m\\.youtube\\.com/(@[^/?]+|(?:channel|c|user)/[^/?]+)(?:/featured)?/?(\\?.*)?$",
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 3,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "regexSubstitution": "https://www.youtube.com/\\1/videos\\2"
+      }
+    },
+    "condition": {
+      "regexFilter": "^https://youtube\\.com/(@[^/?]+|(?:channel|c|user)/[^/?]+)(?:/featured)?/?(\\?.*)?$",
+      "resourceTypes": ["main_frame"]
+    }
+  }
+]
