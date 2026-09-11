@@ -1,6 +1,6 @@
 # homeless-yt
 
-Skips the channel’s “here’s a trailer, a shelf, and a personality quiz” homepage and takes you straight to the videos. Because you clicked a creator, not a brochure.
+Skips the channel’s "trailer” homepage and takes you straight to the videos, exactly how the old YouTube worked.
 
 A Chrome/Edge (Manifest V3) extension. Open `youtube.com/@someone` — or click a channel name on a watch page — and land on `/videos` instead of Home/Featured.
 
