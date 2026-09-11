@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "homeless-yt",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Skip the channel trailer homepage. Open Videos instead.",
   "permissions": ["declarativeNetRequest"],
   "host_permissions": [

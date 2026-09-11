@@ -38,7 +38,7 @@
     return false;
   };
 
-  const toVideosUrl = (href) => {
+  const classifyHref = (href) => {
     if (!href) return null;
     let url;
     try {
@@ -47,16 +47,21 @@
       return null;
     }
     if (!HOSTS.has(url.hostname)) return null;
-    const parts = pathParts(url.pathname);
     if (isHomePath(url.pathname)) {
+      const parts = pathParts(url.pathname);
       url.pathname =
         parts[0].charCodeAt(0) === 64
           ? `/${parts[0]}/videos`
           : `/${parts[0]}/${parts[1]}/videos`;
-      return url;
+      return { kind: "home", url };
     }
-    if (isVideosPath(url.pathname)) return url;
-    return null;
+    if (isVideosPath(url.pathname)) return { kind: "videos", url };
+    return { kind: "other", url };
+  };
+
+  const toVideosUrl = (href) => {
+    const c = classifyHref(href);
+    return c && (c.kind === "home" || c.kind === "videos") ? c.url : null;
   };
 
   const sameVideosPage = (url) =>
@@ -89,63 +94,93 @@
     return null;
   };
 
-  const walkForDest = (obj, seen, depth, out) => {
-    if (!obj || typeof obj !== "object" || depth > 6 || seen.has(obj)) return;
+  // Primary command only. Do not walk owner/byline text: video cards nest the
+  // channel there, and that is not the click target.
+  const destFromPrimary = (obj, seen, depth) => {
+    if (!obj || typeof obj !== "object" || depth > 6 || seen.has(obj)) return null;
     seen.add(obj);
-    const next = toVideosUrl(epUrl(obj));
-    if (next) out.url = next;
+
+    if (obj.watchEndpoint || obj.reelWatchEndpoint || obj.videoId) {
+      return { kind: "other" };
+    }
+
+    const typed = classifyHref(epUrl(obj));
+    if (typed) return typed;
+
     const nested = [
       obj.navigationEndpoint,
       obj.endpoint,
       obj.command,
       obj.innertubeCommand,
       obj.onTap,
-      obj.title,
-      obj.longBylineText,
-      obj.shortBylineText,
-      obj.ownerText,
     ];
-    for (let i = 0; i < nested.length; i++) walkForDest(nested[i], seen, depth + 1, out);
-    if (Array.isArray(obj.runs)) {
-      for (let i = 0; i < obj.runs.length; i++) walkForDest(obj.runs[i], seen, depth + 1, out);
+    for (let i = 0; i < nested.length; i++) {
+      const r = destFromPrimary(nested[i], seen, depth + 1);
+      if (r) return r;
     }
+
     const onTap =
       obj.rendererContext &&
       obj.rendererContext.commandContext &&
       obj.rendererContext.commandContext.onTap &&
       obj.rendererContext.commandContext.onTap.innertubeCommand;
-    if (onTap) walkForDest(onTap, seen, depth + 1, out);
+    if (onTap) {
+      const r = destFromPrimary(onTap, seen, depth + 1);
+      if (r) return r;
+    }
+
+    if (Array.isArray(obj.runs)) {
+      for (let i = 0; i < obj.runs.length; i++) {
+        const r = destFromPrimary(obj.runs[i], seen, depth + 1);
+        if (r) return r;
+      }
+    }
+
+    if (obj.text && typeof obj.text === "object") {
+      const r = destFromPrimary(obj.text, seen, depth + 1);
+      if (r) return r;
+    }
+
+    return null;
+  };
+
+  const urlFromClassified = (c) => {
+    if (!c || c.kind === "other") return null;
+    return c.url;
   };
 
   const destFromEvent = (event) => {
-    const out = { url: null };
     const path = typeof event.composedPath === "function" ? event.composedPath() : [];
     for (let i = 0; i < path.length; i++) {
       const node = path[i];
       if (!node || node.nodeType !== 1 || SKIP_TAGS.has(node.tagName)) continue;
+
       if (node.tagName === "A" && node.href) {
-        const next = toVideosUrl(node.href);
-        if (next) {
-          node.href = hrefFor(next, node.getAttribute("href"));
-          out.url = next;
+        const c = classifyHref(node.href);
+        if (c) {
+          if (c.kind === "home") {
+            node.href = hrefFor(c.url, node.getAttribute("href"));
+          }
+          return urlFromClassified(c);
         }
       }
+
       const data = getData(node);
-      if (data) walkForDest(data, new WeakSet(), 0, out);
+      if (data) {
+        const c = destFromPrimary(data, new WeakSet(), 0);
+        if (c) return urlFromClassified(c);
+      }
     }
-    return out.url;
+    return null;
   };
 
   const destFromDetail = (detail) => {
     if (!detail || typeof detail !== "object") return null;
-    const out = { url: null };
-    walkForDest(detail, new WeakSet(), 0, out);
-    if (detail.url) {
-      const next = toVideosUrl(detail.url);
-      if (next) out.url = next;
+    if (typeof detail.url === "string") {
+      const c = classifyHref(detail.url);
+      if (c) return urlFromClassified(c);
     }
-    if (detail.endpoint) walkForDest(detail.endpoint, new WeakSet(), 0, out);
-    return out.url;
+    return urlFromClassified(destFromPrimary(detail, new WeakSet(), 0));
   };
 
   const hardNav = (url) => {
@@ -211,7 +246,7 @@
     app.handleNavigate = function (ev) {
       try {
         const command = ev && (ev.command || (ev.detail && ev.detail.endpoint) || ev);
-        const url = toVideosUrl(epUrl(command)) || destFromDetail(command);
+        const url = destFromDetail(command);
         if (url && !sameVideosPage(url)) {
           hardNav(url);
           return;
